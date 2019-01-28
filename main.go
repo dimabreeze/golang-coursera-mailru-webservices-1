@@ -18,62 +18,60 @@ func _filterDirs(files *[]os.FileInfo) {
 	*files = (*files)[:idx]
 }
 
-func _readFiles(path string, printFiles bool) ([]os.FileInfo, error) {
+func _dirTree(out io.Writer, path string, includeFiles bool, ident string) error {
 	files, err := ioutil.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-
-	// Leave directories or all
-	if printFiles == false {
-		_filterDirs(&files)
-	}
-
-	return files, nil
-}
-
-func _dirTree(out io.Writer, path string, printFiles bool, ident string) error {
-
-	files, err := _readFiles(path, printFiles)
 	if err != nil {
 		return err
 	}
 
-	for idx, file := range files {
-		lastEntry := idx == len(files)-1
+	// Leave directories or all
+	if includeFiles == false {
+		_filterDirs(&files)
+	}
 
-		write := func(text string) {
+	for idx, file := range files {
+		lastFile := idx == len(files)-1
+
+		writeText := func(text string) {
 			out.Write([]byte(text))
 		}
 
-		write(ident)
-		if lastEntry == false {
-			write("├───")
+		writeText(ident)
+		if lastFile == false {
+			writeText("├───")
 		} else {
-			write("└───")
+			writeText("└───")
 		}
-		write(file.Name())
+		writeText(file.Name())
 
-		if printFiles == true && file.IsDir() == false {
-			write(" (")
+		writeSize := func(file os.FileInfo) {
+			if file.IsDir() == true {
+				return
+			}
+
+			writeText(" (")
 			size := file.Size()
 			if size > 0 {
-				write(strconv.FormatInt(size, 10) + "b")
+				writeText(strconv.FormatInt(size, 10) + "b")
 			} else {
-				write("empty")
+				writeText("empty")
 			}
-			write(")")
+			writeText(")")
 		}
-		write("\n")
+
+		if includeFiles == true {
+			writeSize(file)
+		}
+		writeText("\n")
 
 		//prepare for the next step
 		if file.IsDir() == true {
 			nextIdent := ident
-			if lastEntry == false {
+			if lastFile == false {
 				nextIdent += "│"
 			}
 			nextIdent += "\t"
-			_dirTree(out, path+"/"+file.Name(), printFiles, nextIdent)
+			_dirTree(out, path+"/"+file.Name(), includeFiles, nextIdent)
 		}
 	}
 
