@@ -2,8 +2,8 @@ package main
 
 import (
 	"io"
+	"io/ioutil"
 	"os"
-	"sort"
 	"strconv"
 )
 
@@ -19,15 +19,7 @@ func _filterDirs(files *[]os.FileInfo) {
 }
 
 func _readFiles(path string, printFiles bool) ([]os.FileInfo, error) {
-	f, err := os.Open(path)
-	defer func() {
-		f.Close()
-	}()
-	if err != nil {
-		return nil, err
-	}
-
-	files, err := f.Readdir(-1)
+	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +29,6 @@ func _readFiles(path string, printFiles bool) ([]os.FileInfo, error) {
 		_filterDirs(&files)
 	}
 
-	//Sort slice by file name
-	sort.Slice(files, func(i, j int) bool { return files[i].Name() < files[j].Name() })
 	return files, nil
 }
 
@@ -50,29 +40,31 @@ func _dirTree(out io.Writer, path string, printFiles bool, ident string) error {
 	}
 
 	for idx, file := range files {
-		out.Write([]byte(ident))
-
 		lastEntry := idx == len(files)-1
-		if lastEntry == false {
-			out.Write([]byte("├"))
-		} else {
-			out.Write([]byte("└"))
-		}
-		out.Write([]byte("───" + file.Name()))
 
-		if printFiles == true {
-			if file.IsDir() == false {
-				out.Write([]byte(" ("))
-				size := file.Size()
-				if size > 0 {
-					out.Write([]byte(strconv.FormatInt(size, 10) + "b"))
-				} else {
-					out.Write([]byte("empty"))
-				}
-				out.Write([]byte(")"))
-			}
+		write := func(text string) {
+			out.Write([]byte(text))
 		}
-		out.Write([]byte("\n"))
+
+		write(ident)
+		if lastEntry == false {
+			write("├───")
+		} else {
+			write("└───")
+		}
+		write(file.Name())
+
+		if printFiles == true && file.IsDir() == false {
+			write(" (")
+			size := file.Size()
+			if size > 0 {
+				write(strconv.FormatInt(size, 10) + "b")
+			} else {
+				write("empty")
+			}
+			write(")")
+		}
+		write("\n")
 
 		//prepare for the next step
 		if file.IsDir() == true {
